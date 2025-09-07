@@ -80,14 +80,6 @@
 - **出力形式**: SVG
 - **対応OS**: Windows, macOS, Linux
 
-## 参考
-
-このプラグインは [SVG-VerticalTextHelper](https://github.com/Mr-Ojii/SVG-VerticalTextHelper) の機能を参考に作成されました。
-
-## ライセンス
-
-CC0-1.0 License
-
 ## テスト
 
 ### テスト環境のセットアップ
