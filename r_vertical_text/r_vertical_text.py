@@ -51,6 +51,7 @@ class VerticalTextDialog(QDialog):
         self.char_spacing = 1.2  # 文字間隔（文字と文字の間のスペース）- 少し広めに設定
         self.line_feed = 10
         self.font_family = "Noto Serif CJK JP, Century, serif"
+        self.font_weight = 400  # デフォルトのフォントウェイト
         self.text_color = QColor(0, 0, 0)
         self.force_monospace = False
         self.text_direction = "right_to_left"  # デフォルトは右から左
@@ -162,6 +163,29 @@ class VerticalTextDialog(QDialog):
         self.font_family_combo.currentTextChanged.connect(self.onFontFamilyChanged)
         
         font_layout.addRow("フォントファミリー:", self.font_family_combo)
+        
+        # フォントウェイト選択用のComboBox
+        self.font_weight_combo = QComboBox()
+        self.font_weight_combo.addItem("Thin (100)", 100)
+        self.font_weight_combo.addItem("Extra Light (200)", 200)
+        self.font_weight_combo.addItem("Light (300)", 300)
+        self.font_weight_combo.addItem("Regular (400)", 400)
+        self.font_weight_combo.addItem("Medium (500)", 500)
+        self.font_weight_combo.addItem("Semi Bold (600)", 600)
+        self.font_weight_combo.addItem("Bold (700)", 700)
+        self.font_weight_combo.addItem("Extra Bold (800)", 800)
+        self.font_weight_combo.addItem("Black (900)", 900)
+        
+        # デフォルトウェイトを設定
+        for i in range(self.font_weight_combo.count()):
+            if self.font_weight_combo.itemData(i) == self.font_weight:
+                self.font_weight_combo.setCurrentIndex(i)
+                break
+        
+        # フォントウェイト選択時のイベント接続
+        self.font_weight_combo.currentIndexChanged.connect(self.onFontWeightChanged)
+        
+        font_layout.addRow("フォントウェイト:", self.font_weight_combo)
         
         self.force_monospace_check = QCheckBox("強制的に等幅にする")
         self.force_monospace_check.setChecked(self.force_monospace)
@@ -277,6 +301,26 @@ class VerticalTextDialog(QDialog):
     def onFontFamilyChanged(self, font_family):
         """フォントファミリーが変更された時のイベントハンドラー"""
         self.font_family = font_family
+        
+        # フォント名からウェイトを自動検出して設定
+        detected_weight = self.detectFontWeight(font_family)
+        self.font_weight = detected_weight
+        
+        # ウェイトコンボボックスの選択を更新
+        for i in range(self.font_weight_combo.count()):
+            if self.font_weight_combo.itemData(i) == detected_weight:
+                self.font_weight_combo.setCurrentIndex(i)
+                break
+        
+        # プレビューを自動更新
+        self.updatePreview()
+    
+    def onFontWeightChanged(self, index):
+        """フォントウェイトが変更された時のイベントハンドラー"""
+        self.font_weight = self.font_weight_combo.itemData(index)
+        # デバッグ情報を出力（開発時のみ）
+        if hasattr(self, '_debug_mode') and self._debug_mode:
+            print(f"フォントウェイト変更: {self.font_weight}")
         # プレビューを自動更新
         self.updatePreview()
     
@@ -313,6 +357,7 @@ class VerticalTextDialog(QDialog):
         if color.isValid():
             self.text_color = color
             self.color_label.setStyleSheet(f"background-color: {color.name()}; border: 1px solid black;")
+            # プレビューを自動更新
             self.updatePreview()
     
     def updatePreview(self):
@@ -324,7 +369,12 @@ class VerticalTextDialog(QDialog):
             char_spacing = self.char_spacing_spin.value() / 100.0
             line_feed = self.line_feed_spin.value()
             font_family = self.font_family_combo.currentText()
+            font_weight = self.font_weight_combo.currentData()
             force_monospace = self.force_monospace_check.isChecked()
+            
+            # デバッグ情報を出力（開発時のみ）
+            if hasattr(self, '_debug_mode') and self._debug_mode:
+                print(f"プレビュー更新: フォント='{font_family}', ウェイト={font_weight}, サイズ={font_size}")
             
             # テキスト方向を取得
             if self.direction_right_to_left.isChecked():
@@ -335,7 +385,7 @@ class VerticalTextDialog(QDialog):
             # SVGを生成
             svg_content = self.generateVerticalTextSVG(
                 text, font_size, line_spacing, char_spacing, line_feed, 
-                font_family, self.text_color, force_monospace, text_direction
+                font_family, font_weight, self.text_color, force_monospace, text_direction
             )
             
             # プレビュー用のQPixmapを生成（プレビューラベルのサイズに合わせる）
@@ -346,10 +396,15 @@ class VerticalTextDialog(QDialog):
             
             # プレビューラベルを更新（強制的に再描画）
             self.preview_label.update()
+            self.preview_label.repaint()
             
-            # デバッグ情報（開発時のみ）
+            # アプリケーションのイベントループを処理
+            from PyQt5.QtWidgets import QApplication
+            QApplication.processEvents()
+            
+            # デバッグ情報を出力（開発時のみ）
             if hasattr(self, '_debug_mode') and self._debug_mode:
-                print(f"プレビュー更新: テキスト='{text}', ピクセマップサイズ={pixmap.width()}x{pixmap.height()}")
+                print(f"プレビュー更新完了: テキスト='{text}', ピクセマップサイズ={pixmap.width()}x{pixmap.height()}")
             
         except Exception as e:
             QMessageBox.warning(self, "エラー", f"プレビューの生成に失敗しました: {str(e)}")
@@ -357,7 +412,7 @@ class VerticalTextDialog(QDialog):
             traceback.print_exc()
     
     def generateVerticalTextSVG(self, text, font_size, line_spacing, char_spacing, line_feed, 
-                               font_family, text_color, force_monospace, text_direction="right_to_left"):
+                               font_family, font_weight, text_color, force_monospace, text_direction="right_to_left"):
         """縦書きテキストのSVGを生成"""
         
         # デバッグ出力（開発時のみ）
@@ -372,8 +427,7 @@ class VerticalTextDialog(QDialog):
         # カンマ区切りのフォント名から最初のフォントのみを使用
         primary_font = font_family.split(',')[0].strip()
         
-        # フォントウェイトを検出
-        font_weight = self.detectFontWeight(primary_font)
+        # フォントウェイトは引数で受け取った値を使用
         
         # SVGでのフォント指定を改善
         # フォント名にスペースが含まれている場合は引用符で囲む
@@ -519,7 +573,13 @@ class VerticalTextDialog(QDialog):
         font = QFont()
         font.setFamily(self.font_family_combo.currentText())
         font.setPointSize(self.font_size_spin.value())
+        font_weight = self.font_weight_combo.currentData()
+        font.setWeight(font_weight)
         painter.setFont(font)
+        
+        # デバッグ情報を出力（開発時のみ）
+        if hasattr(self, '_debug_mode') and self._debug_mode:
+            print(f"プレビュー描画: フォント='{self.font_family_combo.currentText()}', ウェイト={font_weight}, サイズ={self.font_size_spin.value()}")
         painter.setPen(self.text_color)
         
         # テキストを描画
@@ -595,6 +655,7 @@ class VerticalTextDialog(QDialog):
             char_spacing = self.char_spacing_spin.value() / 100.0
             line_feed = self.line_feed_spin.value()
             font_family = self.font_family_combo.currentText()
+            font_weight = self.font_weight_combo.currentData()
             force_monospace = self.force_monospace_check.isChecked()
             
             # テキスト方向を取得
@@ -610,13 +671,13 @@ class VerticalTextDialog(QDialog):
                 return
             
             # 方法1: Krita 5のaddShapesFromSvgを使用してテキストを追加
-            success = self.addTextWithKrita5SVG(doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, self.text_color, force_monospace, text_direction)
+            success = self.addTextWithKrita5SVG(doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, font_weight, self.text_color, force_monospace, text_direction)
             
             # 方法1が失敗した場合、クリップボード経由でフォールバック
             if not success:
                 print("addShapesFromSvgが失敗したため、クリップボード経由でフォールバックします")
                 self.logToFile("addShapesFromSvgが失敗したため、クリップボード経由でフォールバックします")
-                success = self.addTextViaClipboard(doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, self.text_color, force_monospace, text_direction)
+                success = self.addTextViaClipboard(doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, font_weight, self.text_color, force_monospace, text_direction)
             
             # 結果をユーザーに通知
             if success:
@@ -631,7 +692,7 @@ class VerticalTextDialog(QDialog):
     
     
     
-    def addTextWithKrita5SVG(self, doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, text_color, force_monospace, text_direction="right_to_left"):
+    def addTextWithKrita5SVG(self, doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, font_weight, text_color, force_monospace, text_direction="right_to_left"):
         """Krita 5のaddShapesFromSvgを使用してテキストを追加（最も確実な方法）"""
         try:
             print("=== addTextWithKrita5SVG 開始 ===")
@@ -649,7 +710,7 @@ class VerticalTextDialog(QDialog):
             # SVGを生成
             svg_content = self.generateVerticalTextSVG(
                 text, font_size, line_spacing, char_spacing, line_feed, 
-                font_family, text_color, force_monospace, text_direction
+                font_family, font_weight, text_color, force_monospace, text_direction
             )
             print(f"SVG生成完了: {len(svg_content)} 文字")
             self.logToFile(f"SVG生成完了: {len(svg_content)} 文字")
@@ -714,7 +775,7 @@ class VerticalTextDialog(QDialog):
             traceback.print_exc()
             return False
     
-    def addTextViaClipboard(self, doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, text_color, force_monospace, text_direction="right_to_left"):
+    def addTextViaClipboard(self, doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, font_weight, text_color, force_monospace, text_direction="right_to_left"):
         """クリップボード経由でテキストを追加（フォールバック方法）"""
         try:
             print("=== addTextViaClipboard 開始 ===")
@@ -723,7 +784,7 @@ class VerticalTextDialog(QDialog):
             # SVGを生成
             svg_content = self.generateVerticalTextSVG(
                 text, font_size, line_spacing, char_spacing, line_feed, 
-                font_family, text_color, force_monospace, text_direction
+                font_family, font_weight, text_color, force_monospace, text_direction
             )
             print(f"SVG生成完了: {len(svg_content)} 文字")
             self.logToFile(f"SVG生成完了: {len(svg_content)} 文字")

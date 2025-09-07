@@ -91,8 +91,8 @@ class TestVerticalTextDialog(unittest.TestCase):
     
     def test_font_family_widget(self):
         """フォントファミリーウィジェットのテスト"""
-        self.assertIsNotNone(self.dialog.font_family_input)
-        self.assertEqual(self.dialog.font_family_input.text(), "Noto Serif CJK JP, Century, serif")
+        self.assertIsNotNone(self.dialog.font_family_combo)
+        self.assertEqual(self.dialog.font_family_combo.currentText(), "Noto Serif CJK JP, Century, serif")
     
     def test_color_selection(self):
         """色選択機能のテスト"""
@@ -185,14 +185,16 @@ class TestSVGGeneration(unittest.TestCase):
         text = "テスト"
         font_size = 24
         line_spacing = 1.2
+        char_spacing = 1.2
         line_feed = 10
         font_family = "Arial"
+        font_weight = 400
         text_color = QColor(0, 0, 0)
         force_monospace = False
         
         svg_content = self.dialog.generateVerticalTextSVG(
-            text, font_size, line_spacing, line_feed, 
-            font_family, text_color, force_monospace
+            text, font_size, line_spacing, char_spacing, line_feed,
+            font_family, font_weight, text_color, force_monospace
         )
         
         # SVGが生成されているかチェック
@@ -212,14 +214,16 @@ class TestSVGGeneration(unittest.TestCase):
         text = "テスト\n複数行"
         font_size = 24
         line_spacing = 1.2
+        char_spacing = 1.2
         line_feed = 10
         font_family = "Arial"
+        font_weight = 400
         text_color = QColor(255, 0, 0)
         force_monospace = False
         
         svg_content = self.dialog.generateVerticalTextSVG(
-            text, font_size, line_spacing, line_feed, 
-            font_family, text_color, force_monospace
+            text, font_size, line_spacing, char_spacing, line_feed,
+            font_family, font_weight, text_color, force_monospace
         )
         
         # SVGが生成されているかチェック
@@ -237,14 +241,16 @@ class TestSVGGeneration(unittest.TestCase):
         text = "テスト"
         font_size = 24
         line_spacing = 1.2
+        char_spacing = 1.2
         line_feed = 10
         font_family = "Arial"
+        font_weight = 400
         text_color = QColor(0, 0, 0)
         force_monospace = True
         
         svg_content = self.dialog.generateVerticalTextSVG(
-            text, font_size, line_spacing, line_feed, 
-            font_family, text_color, force_monospace
+            text, font_size, line_spacing, char_spacing, line_feed,
+            font_family, font_weight, text_color, force_monospace
         )
         
         # 等幅フォント設定が含まれているかチェック
@@ -255,14 +261,16 @@ class TestSVGGeneration(unittest.TestCase):
         text = "テスト"
         font_size = 24
         line_spacing = 1.2
+        char_spacing = 1.2
         line_feed = 10
         font_family = "Arial"
+        font_weight = 400
         text_color = QColor(255, 128, 64)  # オレンジ色
         force_monospace = False
         
         svg_content = self.dialog.generateVerticalTextSVG(
-            text, font_size, line_spacing, line_feed, 
-            font_family, text_color, force_monospace
+            text, font_size, line_spacing, char_spacing, line_feed,
+            font_family, font_weight, text_color, force_monospace
         )
         
         # 色が正しく設定されているかチェック
@@ -350,8 +358,10 @@ class TestIntegration(unittest.TestCase):
                 dialog.text_input.toPlainText(),
                 dialog.font_size_spin.value(),
                 dialog.line_spacing_spin.value() / 100.0,
+                dialog.char_spacing_spin.value() / 100.0,
                 dialog.line_feed_spin.value(),
-                dialog.font_family_input.text(),
+                dialog.font_family_combo.currentText(),
+                dialog.font_weight_combo.currentData(),
                 dialog.text_color,
                 dialog.force_monospace_check.isChecked()
             )
