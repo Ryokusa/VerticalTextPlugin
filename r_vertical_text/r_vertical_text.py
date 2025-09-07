@@ -34,6 +34,7 @@ class VerticalTextDialog(QDialog):
         self.text = "こんにちは\n世界"
         self.font_size = 24
         self.line_spacing = 1.2
+        self.char_spacing = 1.2  # 文字間隔（文字と文字の間のスペース）- 少し広めに設定
         self.line_feed = 10
         self.font_family = "Noto Serif CJK JP, Century, serif"
         self.text_color = QColor(0, 0, 0)
@@ -86,6 +87,12 @@ class VerticalTextDialog(QDialog):
         self.line_spacing_spin.setValue(int(self.line_spacing * 100))
         self.line_spacing_spin.setSuffix("%")
         layout_layout.addRow("行間:", self.line_spacing_spin)
+        
+        self.char_spacing_spin = QSpinBox()
+        self.char_spacing_spin.setRange(50, 200)
+        self.char_spacing_spin.setValue(int(self.char_spacing * 100))
+        self.char_spacing_spin.setSuffix("%")
+        layout_layout.addRow("文字間隔:", self.char_spacing_spin)
         
         self.line_feed_spin = QSpinBox()
         self.line_feed_spin.setRange(1, 50)
@@ -197,6 +204,7 @@ class VerticalTextDialog(QDialog):
             text = self.text_input.toPlainText()
             font_size = self.font_size_spin.value()
             line_spacing = self.line_spacing_spin.value() / 100.0
+            char_spacing = self.char_spacing_spin.value() / 100.0
             line_feed = self.line_feed_spin.value()
             font_family = self.font_family_input.text()
             force_monospace = self.force_monospace_check.isChecked()
@@ -209,7 +217,7 @@ class VerticalTextDialog(QDialog):
             
             # SVGを生成
             svg_content = self.generateVerticalTextSVG(
-                text, font_size, line_spacing, line_feed, 
+                text, font_size, line_spacing, char_spacing, line_feed, 
                 font_family, self.text_color, force_monospace, text_direction
             )
             
@@ -231,7 +239,7 @@ class VerticalTextDialog(QDialog):
             import traceback
             traceback.print_exc()
     
-    def generateVerticalTextSVG(self, text, font_size, line_spacing, line_feed, 
+    def generateVerticalTextSVG(self, text, font_size, line_spacing, char_spacing, line_feed, 
                                font_family, text_color, force_monospace, text_direction="right_to_left"):
         """縦書きテキストのSVGを生成"""
         
@@ -276,7 +284,7 @@ class VerticalTextDialog(QDialog):
                         x_coord = 50 + i * font_size * line_spacing
                     
                     text_elem.set("x", str(x_coord))  # 行のX座標
-                    text_elem.set("y", str(50 + j * font_size))  # 文字のY座標
+                    text_elem.set("y", str(50 + j * font_size * char_spacing))  # 文字のY座標（文字間隔を適用）
                     text_elem.set("font-size", str(font_size))
                     text_elem.set("font-family", font_family)
                     text_elem.set("fill", text_color.name())
@@ -340,6 +348,7 @@ class VerticalTextDialog(QDialog):
         # フォント設定
         font_size = self.font_size_spin.value()
         line_spacing = self.line_spacing_spin.value() / 100.0
+        char_spacing = self.char_spacing_spin.value() / 100.0
         
         # 縦書きテキストの描画
         # プレビューエリアの中央に配置するように計算
@@ -376,7 +385,7 @@ class VerticalTextDialog(QDialog):
                     draw_y = int(y_offset + font_size)  # ベースライン位置（整数に変換）
                     painter.drawText(draw_x, draw_y, char)
                     
-                    y_offset += font_size  # 次の文字は下に配置
+                    y_offset += font_size * char_spacing  # 次の文字は下に配置（文字間隔を適用）
             
             # 次の行のX座標を計算（行間を考慮）
             # 行間は文字の幅 + 余白として計算
@@ -402,6 +411,7 @@ class VerticalTextDialog(QDialog):
             text = self.text_input.toPlainText()
             font_size = self.font_size_spin.value()
             line_spacing = self.line_spacing_spin.value() / 100.0
+            char_spacing = self.char_spacing_spin.value() / 100.0
             line_feed = self.line_feed_spin.value()
             font_family = self.font_family_input.text()
             force_monospace = self.force_monospace_check.isChecked()
@@ -414,7 +424,7 @@ class VerticalTextDialog(QDialog):
             
             # SVGを生成
             svg_content = self.generateVerticalTextSVG(
-                text, font_size, line_spacing, line_feed, 
+                text, font_size, line_spacing, char_spacing, line_feed, 
                 font_family, self.text_color, force_monospace, text_direction
             )
             
@@ -473,7 +483,7 @@ class VerticalTextDialog(QDialog):
             # 方法4: ベクターレイヤーに直接描画（フォールバック）
             if not success:
                 try:
-                    success = self.drawTextToVectorLayer(doc, text, font_size, line_spacing, line_feed, font_family, self.text_color, force_monospace, text_direction)
+                    success = self.drawTextToVectorLayer(doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, self.text_color, force_monospace, text_direction)
                     if success:
                         methods_tried.append("ベクターレイヤー直接描画")
                 except Exception as e:
@@ -541,7 +551,7 @@ class VerticalTextDialog(QDialog):
             f.write(svg_content)
             return f.name
     
-    def drawTextToVectorLayer(self, doc, text, font_size, line_spacing, line_feed, font_family, text_color, force_monospace, text_direction="right_to_left"):
+    def drawTextToVectorLayer(self, doc, text, font_size, line_spacing, char_spacing, line_feed, font_family, text_color, force_monospace, text_direction="right_to_left"):
         """テキストをベクターレイヤーに直接描画（フォールバック方法）"""
         try:
             # 新しいベクターレイヤーを作成
