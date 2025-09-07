@@ -36,18 +36,29 @@
 
 ## インストール方法
 
-1. Kritaのプラグインディレクトリにプラグインをコピーします：
-   ```bash
-   # Windows
-   copy_plugin.ps1
-   
-   # または手動でコピー
-   # Kritaのプラグインディレクトリに r_vertical_text フォルダと r_vertical_text.desktop をコピー
-   ```
+### 利用者向けインストール（推奨）
 
-2. Kritaを再起動します
+1. [Releases](https://github.com/your-username/VerticalTextPlugin/releases)から最新の`VerticalTextPlugin.zip`をダウンロードします
 
-3. メニューから「ツール」→「スクリプト」→「縦書きテキスト生成」を選択
+2. Kritaを起動し、メニューから「設定」→「Pythonプラグイン管理」を選択します
+
+3. 「インポート」ボタンをクリックし、ダウンロードした`VerticalTextPlugin.zip`を選択します
+
+4. プラグインが有効化されていることを確認し、Kritaを再起動します
+
+5. メニューから「ツール」→「スクリプト」→「縦書きテキスト生成」を選択
+
+### 開発者向けインストール
+
+開発時にプラグインを手動でコピーする場合：
+
+```bash
+# Windows
+copy_plugin.ps1
+
+# または手動でコピー
+# Kritaのプラグインディレクトリに r_vertical_text フォルダと r_vertical_text.desktop をコピー
+```
 
 ## 使用方法
 
