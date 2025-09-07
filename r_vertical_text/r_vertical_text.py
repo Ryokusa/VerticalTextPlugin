@@ -18,7 +18,7 @@ except ImportError:
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QSpinBox, QPushButton, 
                              QTextEdit, QCheckBox, QColorDialog, QGroupBox,
-                             QFormLayout, QMessageBox)
+                             QFormLayout, QMessageBox, QRadioButton, QButtonGroup)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QFont, QPixmap, QPainter
 import xml.etree.ElementTree as ET
@@ -38,6 +38,7 @@ class VerticalTextDialog(QDialog):
         self.font_family = "Noto Serif CJK JP, Century, serif"
         self.text_color = QColor(0, 0, 0)
         self.force_monospace = False
+        self.text_direction = "right_to_left"  # デフォルトは右から左
         
         self.setupUI()
         
@@ -90,6 +91,24 @@ class VerticalTextDialog(QDialog):
         self.line_feed_spin.setRange(1, 50)
         self.line_feed_spin.setValue(self.line_feed)
         layout_layout.addRow("強制改行文字数:", self.line_feed_spin)
+        
+        # テキスト方向設定
+        direction_layout = QHBoxLayout()
+        self.direction_button_group = QButtonGroup()
+        
+        self.direction_right_to_left = QRadioButton("右から左")
+        self.direction_right_to_left.setChecked(self.text_direction == "right_to_left")
+        self.direction_button_group.addButton(self.direction_right_to_left, 0)
+        
+        self.direction_left_to_right = QRadioButton("左から右")
+        self.direction_left_to_right.setChecked(self.text_direction == "left_to_right")
+        self.direction_button_group.addButton(self.direction_left_to_right, 1)
+        
+        direction_layout.addWidget(self.direction_right_to_left)
+        direction_layout.addWidget(self.direction_left_to_right)
+        direction_layout.addStretch()
+        
+        layout_layout.addRow("テキスト方向:", direction_layout)
         
         layout_group.setLayout(layout_layout)
         layout.addWidget(layout_group)
@@ -182,14 +201,20 @@ class VerticalTextDialog(QDialog):
             font_family = self.font_family_input.text()
             force_monospace = self.force_monospace_check.isChecked()
             
+            # テキスト方向を取得
+            if self.direction_right_to_left.isChecked():
+                text_direction = "right_to_left"
+            else:
+                text_direction = "left_to_right"
+            
             # SVGを生成
             svg_content = self.generateVerticalTextSVG(
                 text, font_size, line_spacing, line_feed, 
-                font_family, self.text_color, force_monospace
+                font_family, self.text_color, force_monospace, text_direction
             )
             
             # プレビュー用のQPixmapを生成（プレビューラベルのサイズに合わせる）
-            pixmap = self.svgToPixmap(svg_content, 350, 350)
+            pixmap = self.svgToPixmap(svg_content, 350, 350, text_direction)
             
             # プレビューラベルに設定
             self.preview_label.setPixmap(pixmap)
@@ -207,7 +232,7 @@ class VerticalTextDialog(QDialog):
             traceback.print_exc()
     
     def generateVerticalTextSVG(self, text, font_size, line_spacing, line_feed, 
-                               font_family, text_color, force_monospace):
+                               font_family, text_color, force_monospace, text_direction="right_to_left"):
         """縦書きテキストのSVGを生成"""
         
         # テキストを行に分割
@@ -241,8 +266,16 @@ class VerticalTextDialog(QDialog):
             for j, char in enumerate(line):
                 if char.strip():  # 空白文字以外
                     text_elem = ET.SubElement(svg, "text")
-                    # 縦書きでは行が横に並び、文字が縦に配置される
-                    text_elem.set("x", str(50 + i * font_size * line_spacing))  # 行のX座標
+                    
+                    # テキスト方向に応じてX座標を計算
+                    if text_direction == "right_to_left":
+                        # 右から左：最後の行から最初の行へ
+                        x_coord = 50 + (len(lines) - 1 - i) * font_size * line_spacing
+                    else:
+                        # 左から右：最初の行から最後の行へ
+                        x_coord = 50 + i * font_size * line_spacing
+                    
+                    text_elem.set("x", str(x_coord))  # 行のX座標
                     text_elem.set("y", str(50 + j * font_size))  # 文字のY座標
                     text_elem.set("font-size", str(font_size))
                     text_elem.set("font-family", font_family)
@@ -284,7 +317,7 @@ class VerticalTextDialog(QDialog):
             
         return lines
     
-    def svgToPixmap(self, svg_content, width, height):
+    def svgToPixmap(self, svg_content, width, height, text_direction="right_to_left"):
         """SVGコンテンツをQPixmapに変換"""
         # 簡単なプレビュー用の実装
         pixmap = QPixmap(width, height)
@@ -326,8 +359,14 @@ class VerticalTextDialog(QDialog):
         start_y = preview_center_y - total_text_height // 2
         
         # 各行のX座標を計算（縦書きでは行が横に並ぶ）
-        x_offset = start_x
-        for line in lines:
+        if text_direction == "right_to_left":
+            # 右から左：最後の行から最初の行へ
+            x_offset = start_x + total_text_width - font_size * line_spacing
+        else:
+            # 左から右：最初の行から最後の行へ
+            x_offset = start_x
+            
+        for i, line in enumerate(lines):
             y_offset = start_y
             for char in line:
                 if char.strip():
@@ -345,7 +384,13 @@ class VerticalTextDialog(QDialog):
             min_line_width = int(font_size * 1.5)
             calculated_line_width = int(font_size * line_spacing)
             actual_line_width = max(min_line_width, calculated_line_width)
-            x_offset += actual_line_width
+            
+            if text_direction == "right_to_left":
+                # 右から左：次の行は左に移動
+                x_offset -= actual_line_width
+            else:
+                # 左から右：次の行は右に移動
+                x_offset += actual_line_width
         
         painter.end()
         return pixmap
@@ -361,10 +406,16 @@ class VerticalTextDialog(QDialog):
             font_family = self.font_family_input.text()
             force_monospace = self.force_monospace_check.isChecked()
             
+            # テキスト方向を取得
+            if self.direction_right_to_left.isChecked():
+                text_direction = "right_to_left"
+            else:
+                text_direction = "left_to_right"
+            
             # SVGを生成
             svg_content = self.generateVerticalTextSVG(
                 text, font_size, line_spacing, line_feed, 
-                font_family, self.text_color, force_monospace
+                font_family, self.text_color, force_monospace, text_direction
             )
             
             # アクティブなドキュメントを取得
@@ -422,7 +473,7 @@ class VerticalTextDialog(QDialog):
             # 方法4: ベクターレイヤーに直接描画（フォールバック）
             if not success:
                 try:
-                    success = self.drawTextToVectorLayer(doc, text, font_size, line_spacing, line_feed, font_family, self.text_color, force_monospace)
+                    success = self.drawTextToVectorLayer(doc, text, font_size, line_spacing, line_feed, font_family, self.text_color, force_monospace, text_direction)
                     if success:
                         methods_tried.append("ベクターレイヤー直接描画")
                 except Exception as e:
@@ -490,7 +541,7 @@ class VerticalTextDialog(QDialog):
             f.write(svg_content)
             return f.name
     
-    def drawTextToVectorLayer(self, doc, text, font_size, line_spacing, line_feed, font_family, text_color, force_monospace):
+    def drawTextToVectorLayer(self, doc, text, font_size, line_spacing, line_feed, font_family, text_color, force_monospace, text_direction="right_to_left"):
         """テキストをベクターレイヤーに直接描画（フォールバック方法）"""
         try:
             # 新しいベクターレイヤーを作成
