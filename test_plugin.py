@@ -34,8 +34,24 @@ try:
         print("縦書きテキストプラグインの対話的テストを開始します...")
         print("=" * 60)
         
-        # ダイアログを作成して表示
+        # ダイアログを作成
         dialog = VerticalTextDialog()
+        
+        # プレビューの初期状態をチェック
+        pixmap = dialog.preview_label.pixmap()
+        if pixmap is not None and not pixmap.isNull():
+            print("✅ 初期プレビューが正常に生成されました")
+        else:
+            print("❌ 初期プレビューが生成されませんでした")
+            # 手動でプレビューを更新
+            dialog.updatePreview()
+            pixmap2 = dialog.preview_label.pixmap()
+            if pixmap2 is not None and not pixmap2.isNull():
+                print("✅ 手動更新でプレビューが生成されました")
+            else:
+                print("❌ 手動更新でもプレビューが生成されませんでした")
+        
+        # ダイアログを表示
         dialog.show()
         
         print("✅ ダイアログが表示されました")
@@ -82,7 +98,10 @@ try:
             )
             assert isinstance(svg_content, str), "SVG生成が文字列を返していません"
             assert "<svg" in svg_content, "SVGコンテンツが正しくありません"
-            assert "テスト" in svg_content, "テキストがSVGに含まれていません"
+            # 個別の文字がSVGに含まれているかチェック
+            assert "テ" in svg_content, "文字「テ」がSVGに含まれていません"
+            assert "ス" in svg_content, "文字「ス」がSVGに含まれていません"
+            assert "ト" in svg_content, "文字「ト」がSVGに含まれていません"
             print("✅ SVG生成機能が正常")
             
             # 拡張機能のテスト

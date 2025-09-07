@@ -28,7 +28,7 @@ class VerticalTextDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("縦書きテキスト生成")
         self.setModal(True)
-        self.resize(500, 600)
+        self.resize(500, 700)
         
         # デフォルト値
         self.text = "こんにちは\n世界"
@@ -118,9 +118,11 @@ class VerticalTextDialog(QDialog):
         preview_layout = QVBoxLayout()
         
         self.preview_label = QLabel()
-        self.preview_label.setMinimumHeight(200)
+        self.preview_label.setMinimumHeight(350)
+        self.preview_label.setMinimumWidth(350)
         self.preview_label.setStyleSheet("border: 1px solid gray; background-color: white;")
         self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setScaledContents(False)  # スケーリングを無効化してアスペクト比を保持
         
         preview_layout.addWidget(self.preview_label)
         preview_group.setLayout(preview_layout)
@@ -147,8 +149,21 @@ class VerticalTextDialog(QDialog):
         
         self.setLayout(layout)
         
-        # 初期プレビュー更新
-        self.updatePreview()
+        # 初期プレビュー更新（UIの構築を完了させてから実行）
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(200, self.updatePreview)
+        
+        # さらに確実にするため、showEventでも更新
+        self._initial_preview_done = False
+    
+    def showEvent(self, event):
+        """ダイアログが表示された時のイベント"""
+        super().showEvent(event)
+        if not self._initial_preview_done:
+            # 初期プレビューがまだ完了していない場合、更新
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(50, self.updatePreview)
+            self._initial_preview_done = True
         
     def selectColor(self):
         color = QColorDialog.getColor(self.text_color, self)
@@ -173,12 +188,23 @@ class VerticalTextDialog(QDialog):
                 font_family, self.text_color, force_monospace
             )
             
-            # プレビュー用のQPixmapを生成
-            pixmap = self.svgToPixmap(svg_content, 300, 400)
+            # プレビュー用のQPixmapを生成（プレビューラベルのサイズに合わせる）
+            pixmap = self.svgToPixmap(svg_content, 350, 350)
+            
+            # プレビューラベルに設定
             self.preview_label.setPixmap(pixmap)
+            
+            # プレビューラベルを更新（強制的に再描画）
+            self.preview_label.update()
+            
+            # デバッグ情報（開発時のみ）
+            if hasattr(self, '_debug_mode') and self._debug_mode:
+                print(f"プレビュー更新: テキスト='{text}', ピクセマップサイズ={pixmap.width()}x{pixmap.height()}")
             
         except Exception as e:
             QMessageBox.warning(self, "エラー", f"プレビューの生成に失敗しました: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def generateVerticalTextSVG(self, text, font_size, line_spacing, line_feed, 
                                font_family, text_color, force_monospace):
@@ -192,10 +218,10 @@ class VerticalTextDialog(QDialog):
         if force_monospace:
             font_style += " font-variant-numeric: tabular-nums;"
         
-        # SVGのサイズを計算
+        # SVGのサイズを計算（縦書きレイアウト用）
         max_line_length = max(len(line) for line in lines) if lines else 1
-        svg_width = max_line_length * font_size + 40
-        svg_height = len(lines) * font_size * line_spacing + 40
+        svg_width = len(lines) * font_size * line_spacing + 100  # 行数 × 行間 + マージン
+        svg_height = max_line_length * font_size + 100  # 最長行の文字数 × フォントサイズ + マージン
         
         # SVGルート要素を作成
         svg = ET.Element("svg")
@@ -210,13 +236,14 @@ class VerticalTextDialog(QDialog):
         rect.set("height", "100%")
         rect.set("fill", "none")
         
-        # テキスト要素を追加
+        # 縦書きテキスト要素を追加
         for i, line in enumerate(lines):
             for j, char in enumerate(line):
                 if char.strip():  # 空白文字以外
                     text_elem = ET.SubElement(svg, "text")
-                    text_elem.set("x", str(20 + j * font_size))
-                    text_elem.set("y", str(30 + i * font_size * line_spacing))
+                    # 縦書きでは行が横に並び、文字が縦に配置される
+                    text_elem.set("x", str(50 + i * font_size * line_spacing))  # 行のX座標
+                    text_elem.set("y", str(50 + j * font_size))  # 文字のY座標
                     text_elem.set("font-size", str(font_size))
                     text_elem.set("font-family", font_family)
                     text_elem.set("fill", text_color.name())
@@ -277,14 +304,48 @@ class VerticalTextDialog(QDialog):
         text = self.text_input.toPlainText()
         lines = self.splitTextIntoLines(text, self.line_feed_spin.value())
         
-        y_offset = 30
+        # フォント設定
+        font_size = self.font_size_spin.value()
+        line_spacing = self.line_spacing_spin.value() / 100.0
+        
+        # 縦書きテキストの描画
+        # プレビューエリアの中央に配置するように計算
+        total_lines = len(lines)
+        max_line_length = max(len(line) for line in lines) if lines else 1
+        
+        # プレビューエリアの中央を計算
+        preview_center_x = width // 2
+        preview_center_y = height // 2
+        
+        # テキスト全体のサイズを計算
+        total_text_width = total_lines * font_size * line_spacing
+        total_text_height = max_line_length * font_size
+        
+        # テキストの開始位置を中央から計算
+        start_x = preview_center_x - total_text_width // 2
+        start_y = preview_center_y - total_text_height // 2
+        
+        # 各行のX座標を計算（縦書きでは行が横に並ぶ）
+        x_offset = start_x
         for line in lines:
-            x_offset = 20
+            y_offset = start_y
             for char in line:
                 if char.strip():
-                    painter.drawText(x_offset, y_offset, char)
-                    x_offset += self.font_size_spin.value()
-            y_offset += int(self.font_size_spin.value() * self.line_spacing_spin.value() / 100.0)
+                    # 縦書きでは文字を縦に配置
+                    # フォントサイズを基準にした描画位置
+                    draw_x = int(x_offset + font_size // 2)  # 文字の中央に配置（整数に変換）
+                    draw_y = int(y_offset + font_size)  # ベースライン位置（整数に変換）
+                    painter.drawText(draw_x, draw_y, char)
+                    
+                    y_offset += font_size  # 次の文字は下に配置
+            
+            # 次の行のX座標を計算（行間を考慮）
+            # 行間は文字の幅 + 余白として計算
+            # 最小行間を確保するため、フォントサイズの1.5倍以上にする
+            min_line_width = int(font_size * 1.5)
+            calculated_line_width = int(font_size * line_spacing)
+            actual_line_width = max(min_line_width, calculated_line_width)
+            x_offset += actual_line_width
         
         painter.end()
         return pixmap
@@ -377,11 +438,11 @@ class VerticalTextDialog(QDialog):
                 QMessageBox.information(self, "成功", message)
             else:
                 QMessageBox.warning(self, "警告", 
-                    f"SVGの追加に失敗しました。\n\n試行された方法:\n" + "\n".join(methods_tried) + 
+                    "SVGの追加に失敗しました。\n\n試行された方法:\n" + "\n".join(methods_tried) + 
                     "\n\n手動でSVGファイルをインポートしてください。")
                 
         except Exception as e:
-            QMessageBox.critical(self, "エラー", f"Kritaへの追加に失敗しました: {str(e)}")
+            QMessageBox.critical(self, "エラー", "Kritaへの追加に失敗しました: " + str(e))
     
     def createSVGLayerDirectly(self, doc, svg_content):
         """SVGを直接Kritaレイヤーとして作成"""
@@ -436,9 +497,6 @@ class VerticalTextDialog(QDialog):
             root = doc.rootNode()
             vector_layer = doc.createVectorLayer("縦書きテキスト")
             root.addChildNode(vector_layer, None)
-            
-            # テキストを行に分割
-            lines = self.splitTextIntoLines(text, line_feed)
             
             # ベクターレイヤーにテキストを描画
             # 注意: これは簡易的な実装で、実際のベクター描画はKritaのAPIに依存します
