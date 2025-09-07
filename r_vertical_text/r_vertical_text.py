@@ -393,10 +393,6 @@ class VerticalTextDialog(QDialog):
             self.logToFile(f"SVG生成 - プライマリフォント: '{primary_font}'")
             self.logToFile(f"SVG生成 - SVG用フォント名: '{svg_font_family}'")
         
-        font_style = f"font-family: {svg_font_family}; font-size: {font_size}px;"
-        if force_monospace:
-            font_style += " font-variant-numeric: tabular-nums;"
-        
         # SVGのサイズを計算（縦書きレイアウト用）
         max_line_length = max(len(line) for line in lines) if lines else 1
         svg_width = len(lines) * font_size * line_spacing + 100  # 行数 × 行間 + マージン
@@ -415,48 +411,63 @@ class VerticalTextDialog(QDialog):
         rect.set("height", "100%")
         rect.set("fill", "none")
         
-        # 縦書きテキスト要素を追加
+        # 一つのtext要素を作成（縦書き用）
+        text_elem = ET.SubElement(svg, "text")
+        
+        # 縦書き用の属性を設定
+        text_elem.set("text-rendering", "auto")
+        text_elem.set("fill", text_color.name())
+        text_elem.set("stroke-opacity", "0")
+        text_elem.set("stroke", "#000000")
+        text_elem.set("stroke-width", "0")
+        text_elem.set("stroke-linecap", "square")
+        text_elem.set("stroke-linejoin", "bevel")
+        text_elem.set("letter-spacing", "0")
+        text_elem.set("word-spacing", "0")
+        text_elem.set("writing-mode", "vertical-rl")
+        
+        # style属性を設定
+        style_parts = [
+            "text-align: start",
+            "text-align-last: auto",
+            f"font-family: {svg_font_family}",
+            f"font-size: {font_size}",
+            f"font-weight: {font_weight}"
+        ]
+        
+        if force_monospace:
+            style_parts.append("font-variant-numeric: tabular-nums")
+        
+        text_elem.set("style", "; ".join(style_parts))
+        
+        # 各行のテキストをtspanで配置
         for i, line in enumerate(lines):
-            for j, char in enumerate(line):
-                if char.strip():  # 空白文字以外
-                    text_elem = ET.SubElement(svg, "text")
-                    
-                    # テキスト方向に応じてX座標を計算
-                    if text_direction == "right_to_left":
-                        # 右から左：最後の行から最初の行へ
-                        x_coord = 50 + (len(lines) - 1 - i) * font_size * line_spacing
-                    else:
-                        # 左から右：最初の行から最後の行へ
-                        x_coord = 50 + i * font_size * line_spacing
-                    
-                    y_coord = 50 + j * font_size * char_spacing
-                    
-                    # Krita互換のstyle属性を作成
-                    style_parts = [
-                        f"fill:{text_color.name()}",
-                        "letter-spacing:0",
-                        "word-spacing:0", 
-                        f"font-family:{svg_font_family}",
-                        f"font-size:{font_size}",
-                        f"font-weight:{font_weight}",  # 検出されたフォントウェイト
-                        "stroke-width:0",
-                        "text-anchor:middle"
-                    ]
-                    
-                    if force_monospace:
-                        style_parts.append("font-variant-numeric:tabular-nums")
-                    
-                    style_attr = "; ".join(style_parts)
-                    
-                    # Krita互換の属性設定
-                    text_elem.set("style", style_attr)
-                    text_elem.set("x", str(x_coord))
-                    text_elem.set("y", str(y_coord))
-                    
-                    # tspan要素を使用してテキストを配置（Krita互換）
-                    tspan = ET.SubElement(text_elem, "tspan")
-                    tspan.set("x", str(x_coord))
-                    tspan.text = char
+            if not line.strip():  # 空行はスキップ
+                continue
+                
+            # テキスト方向に応じてX座標を計算
+            if text_direction == "right_to_left":
+                # 右から左：最後の行から最初の行へ
+                x_coord = 50 + (len(lines) - 1 - i) * font_size * line_spacing
+            else:
+                # 左から右：最初の行から最後の行へ
+                x_coord = 50 + i * font_size * line_spacing
+            
+            # 最初の文字のY座標
+            y_coord = 50 + font_size
+            
+            # 行のテキストを一つのtspanにまとめる
+            tspan = ET.SubElement(text_elem, "tspan")
+            tspan.set("x", str(x_coord))
+            tspan.set("y", str(y_coord))
+            tspan.text = line
+            
+            # 次の行のためにdx属性で位置調整（縦書きでは行間を調整）
+            if i < len(lines) - 1:  # 最後の行でない場合
+                next_tspan = ET.SubElement(text_elem, "tspan")
+                next_tspan.set("y", "0")
+                next_tspan.set("dx", f"-{int(font_size * line_spacing)}")
+                next_tspan.text = ""  # 空のtspanで位置調整
         
         # 生成されたSVGの内容をデバッグ出力（開発時のみ）
         svg_content = ET.tostring(svg, encoding='unicode')
