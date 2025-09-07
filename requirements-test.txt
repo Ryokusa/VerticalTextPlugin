@@ -1,0 +1,12 @@
+# 縦書きテキストプラグインのテスト用依存関係
+
+# PyQt5 - GUI フレームワーク
+PyQt5>=5.15.0
+
+# krita-python-mock - Krita API のモック
+# GitHub から直接インストール
+git+https://github.com/rbreu/krita-python-mock.git
+
+# テスト用の追加ライブラリ（オプション）
+pytest>=6.0.0
+pytest-qt>=4.0.0

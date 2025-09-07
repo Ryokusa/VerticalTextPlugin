@@ -1,3 +1,153 @@
-## 概要
+# 縦書きテキスト生成 Krita プラグイン
 
-縦書き用Krita Plugin
+[SVG-VerticalTextHelper](https://github.com/Mr-Ojii/SVG-VerticalTextHelper)を参考に作成した、Krita用の縦書きテキスト生成プラグインです。
+
+## 機能
+
+このプラグインは以下の機能を提供します：
+
+### テキスト設定
+- 縦書きテキストの入力
+- 改行文字による手動改行
+- 強制改行文字数の設定
+
+### フォント設定
+- フォントサイズの調整（8-200px）
+- フォントファミリーの指定（カンマ区切りで複数指定可能）
+- 強制的に等幅フォントにするオプション
+
+### レイアウト設定
+- 行間の調整（50%-300%）
+- 強制改行文字数の設定（1-50文字）
+
+### 色設定
+- 文字色の選択（カラーピッカー）
+
+### プレビュー機能
+- リアルタイムプレビュー表示
+- 設定変更時の自動更新
+
+### Krita連携
+- 生成したSVGをKritaに追加
+- 一時ファイルとして保存
+
+## インストール方法
+
+1. Kritaのプラグインディレクトリにプラグインをコピーします：
+   ```bash
+   # Windows
+   copy_plugin.ps1
+   
+   # または手動でコピー
+   # Kritaのプラグインディレクトリに r_vertical_text フォルダと r_vertical_text.desktop をコピー
+   ```
+
+2. Kritaを再起動します
+
+3. メニューから「ツール」→「スクリプト」→「縦書きテキスト生成」を選択
+
+## 使用方法
+
+1. プラグインを起動すると「縦書きテキスト生成」ダイアログが表示されます
+
+2. テキスト設定で縦書きにしたいテキストを入力します
+
+3. フォント設定でフォントサイズやフォントファミリーを調整します
+
+4. レイアウト設定で行間や改行文字数を調整します
+
+5. 色設定で文字色を選択します
+
+6. 「プレビュー更新」ボタンでプレビューを確認します
+
+7. 「Kritaに追加」ボタンで生成したSVGをKritaに追加します
+
+## 特徴
+
+- **日本語対応**: 日本語の縦書きテキストに最適化
+- **句読点対応**: 「。」「、」「」」「』」は改行されません
+- **複数フォント対応**: フォールバック機能付きフォント指定
+- **リアルタイムプレビュー**: 設定変更を即座に確認
+- **SVG出力**: ベクター形式で高品質な出力
+
+## 技術仕様
+
+- **言語**: Python 3
+- **UI**: PyQt5
+- **出力形式**: SVG
+- **対応OS**: Windows, macOS, Linux
+
+## 参考
+
+このプラグインは [SVG-VerticalTextHelper](https://github.com/Mr-Ojii/SVG-VerticalTextHelper) の機能を参考に作成されました。
+
+## ライセンス
+
+CC0-1.0 License
+
+## テスト
+
+### テスト環境のセットアップ
+
+[krita-python-mock](https://github.com/rbreu/krita-python-mock)を使用してKrita環境外でテストを実行できます。
+
+```bash
+# 必要な依存関係をインストール
+pip install -r requirements-test.txt
+```
+
+### テストの実行
+
+#### 1. 対話的テスト（GUI表示）
+```bash
+python test_plugin.py --interactive
+```
+
+#### 2. 自動テスト（コンソールのみ）
+```bash
+python test_plugin.py --automated
+```
+
+#### 3. 包括的なユニットテスト
+```bash
+python test_vertical_text.py
+```
+
+#### 4. 一括テスト実行（Windows）
+```cmd
+run_tests.bat
+```
+
+#### 5. 一括テスト実行（Linux/macOS）
+```bash
+chmod +x run_tests.sh
+./run_tests.sh
+```
+
+### テスト内容
+
+- **UIコンポーネントテスト**: ダイアログの初期化とウィジェットの動作
+- **テキスト処理テスト**: 縦書きテキストの分割と改行処理
+- **SVG生成テスト**: SVG出力の正確性と形式
+- **拡張機能テスト**: Kritaプラグインとしての統合
+- **統合テスト**: 完全なワークフローの動作確認
+
+### テスト結果の例
+
+```
+縦書きテキストプラグインのテストを開始します...
+============================================================
+test_dialog_initialization (__main__.TestVerticalTextDialog) ... ok
+test_text_input_widget (__main__.TestVerticalTextDialog) ... ok
+test_font_size_widget (__main__.TestVerticalTextDialog) ... ok
+test_split_text_into_lines_basic (__main__.TestTextProcessing) ... ok
+test_generate_vertical_text_svg_basic (__main__.TestSVGGeneration) ... ok
+test_extension_initialization (__main__.TestRVerticalTextExtension) ... ok
+test_full_workflow (__main__.TestIntegration) ... ok
+
+Ran 7 tests in 0.123s
+
+OK
+============================================================
+✅ すべてのテストが成功しました！
+```
