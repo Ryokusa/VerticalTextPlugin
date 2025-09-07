@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=Krita/PythonPlugin
+X-KDE-Library=r_vertical_text
+X-Python-2-Compatible=false
+Name=縦書きプラグイン
+Comment=私の初めてのプラグイン。
