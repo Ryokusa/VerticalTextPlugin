@@ -16,18 +16,23 @@ except ImportError:
             return None
 
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QLineEdit, QSpinBox, QPushButton, 
+                             QSpinBox, QPushButton, 
                              QTextEdit, QCheckBox, QColorDialog, QGroupBox,
-                             QFormLayout, QMessageBox, QRadioButton, QButtonGroup)
+                             QFormLayout, QMessageBox, QRadioButton, QButtonGroup,
+                             QComboBox)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor, QFont, QPixmap, QPainter
+from PyQt5.QtGui import QColor, QFont, QPixmap, QPainter, QFontDatabase
 import xml.etree.ElementTree as ET
 
 # PyQt5.QtSvgの可用性をチェック
 try:
-    from PyQt5.QtSvg import QSvgRenderer, QSvgGenerator
-    QTSVG_AVAILABLE = True
-    print("PyQt5.QtSvg is available - SVG vector layer support enabled")
+    import importlib.util
+    spec = importlib.util.find_spec("PyQt5.QtSvg")
+    QTSVG_AVAILABLE = spec is not None
+    if QTSVG_AVAILABLE:
+        print("PyQt5.QtSvg is available - SVG vector layer support enabled")
+    else:
+        print("PyQt5.QtSvg is not available - SVG vector layer support disabled")
 except ImportError:
     QTSVG_AVAILABLE = False
     print("PyQt5.QtSvg is not available - SVG vector layer support disabled")
@@ -50,7 +55,72 @@ class VerticalTextDialog(QDialog):
         self.force_monospace = False
         self.text_direction = "right_to_left"  # デフォルトは右から左
         
+        # システムフォントを取得
+        self.available_fonts = self.getSystemFonts()
+        
         self.setupUI()
+    
+    def getSystemFonts(self):
+        """システムにインストールされているフォントを取得"""
+        try:
+            font_db = QFontDatabase()
+            families = font_db.families()
+            
+            # 日本語フォントを優先して並べ替え
+            japanese_fonts = []
+            other_fonts = []
+            
+            for family in families:
+                if any(keyword in family.lower() for keyword in ['noto', 'source', 'hiragino', 'yu', 'meiryo', 'ms gothic', 'ms mincho', 'cjk', 'japanese']):
+                    japanese_fonts.append(family)
+                else:
+                    other_fonts.append(family)
+            
+            # 日本語フォントを先頭に、その他をアルファベット順に
+            sorted_fonts = sorted(japanese_fonts) + sorted(other_fonts)
+            
+            # デフォルトフォントを先頭に追加
+            default_fonts = ["Noto Serif CJK JP", "Source Han Serif JP", "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho"]
+            final_fonts = []
+            
+            for default_font in default_fonts:
+                if default_font in sorted_fonts:
+                    final_fonts.append(default_font)
+                    sorted_fonts.remove(default_font)
+            
+            final_fonts.extend(sorted_fonts)
+            return final_fonts
+            
+        except Exception as e:
+            print(f"フォント取得エラー: {e}")
+            # フォールバック用のデフォルトフォントリスト
+            return ["Noto Serif CJK JP", "Source Han Serif JP", "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", "serif", "sans-serif"]
+    
+    def detectFontWeight(self, font_name):
+        """フォント名からフォントウェイトを検出"""
+        font_name_lower = font_name.lower()
+        
+        # フォント名に含まれるウェイトキーワードを検出
+        if any(keyword in font_name_lower for keyword in ['black', 'heavy', '900']):
+            return 900
+        elif any(keyword in font_name_lower for keyword in ['extra bold', 'ultra bold', '800']):
+            return 800
+        elif any(keyword in font_name_lower for keyword in ['bold', '700']):
+            return 700
+        elif any(keyword in font_name_lower for keyword in ['semi bold', 'demi bold', '600']):
+            return 600
+        elif any(keyword in font_name_lower for keyword in ['medium', '500']):
+            return 500
+        elif any(keyword in font_name_lower for keyword in ['regular', 'normal', '400']):
+            return 400
+        elif any(keyword in font_name_lower for keyword in ['light', '300']):
+            return 300
+        elif any(keyword in font_name_lower for keyword in ['extra light', 'ultra light', '200']):
+            return 200
+        elif any(keyword in font_name_lower for keyword in ['thin', '100']):
+            return 100
+        else:
+            return 400  # デフォルト
         
     def setupUI(self):
         layout = QVBoxLayout()
@@ -76,9 +146,22 @@ class VerticalTextDialog(QDialog):
         self.font_size_spin.setValue(self.font_size)
         font_layout.addRow("フォントサイズ:", self.font_size_spin)
         
-        self.font_family_input = QLineEdit()
-        self.font_family_input.setText(self.font_family)
-        font_layout.addRow("フォントファミリー:", self.font_family_input)
+        # フォント選択用のComboBox
+        self.font_family_combo = QComboBox()
+        self.font_family_combo.setEditable(True)  # 手動入力も可能にする
+        self.font_family_combo.addItems(self.available_fonts)
+        
+        # デフォルトフォントを設定
+        default_index = self.font_family_combo.findText(self.font_family)
+        if default_index >= 0:
+            self.font_family_combo.setCurrentIndex(default_index)
+        else:
+            self.font_family_combo.setCurrentText(self.font_family)
+        
+        # フォント選択時のイベント接続
+        self.font_family_combo.currentTextChanged.connect(self.onFontFamilyChanged)
+        
+        font_layout.addRow("フォントファミリー:", self.font_family_combo)
         
         self.force_monospace_check = QCheckBox("強制的に等幅にする")
         self.force_monospace_check.setChecked(self.force_monospace)
@@ -191,6 +274,12 @@ class VerticalTextDialog(QDialog):
         # さらに確実にするため、showEventでも更新
         self._initial_preview_done = False
     
+    def onFontFamilyChanged(self, font_family):
+        """フォントファミリーが変更された時のイベントハンドラー"""
+        self.font_family = font_family
+        # プレビューを自動更新
+        self.updatePreview()
+    
     def showEvent(self, event):
         """ダイアログが表示された時のイベント"""
         super().showEvent(event)
@@ -234,7 +323,7 @@ class VerticalTextDialog(QDialog):
             line_spacing = self.line_spacing_spin.value() / 100.0
             char_spacing = self.char_spacing_spin.value() / 100.0
             line_feed = self.line_feed_spin.value()
-            font_family = self.font_family_input.text()
+            font_family = self.font_family_combo.currentText()
             force_monospace = self.force_monospace_check.isChecked()
             
             # テキスト方向を取得
@@ -271,11 +360,40 @@ class VerticalTextDialog(QDialog):
                                font_family, text_color, force_monospace, text_direction="right_to_left"):
         """縦書きテキストのSVGを生成"""
         
+        # デバッグ出力（開発時のみ）
+        if hasattr(self, '_debug_mode') and self._debug_mode:
+            print(f"SVG生成 - フォントファミリー: '{font_family}'")
+            self.logToFile(f"SVG生成 - フォントファミリー: '{font_family}'")
+        
         # テキストを行に分割
         lines = self.splitTextIntoLines(text, line_feed)
         
-        # フォント設定
-        font_style = f"font-family: {font_family}; font-size: {font_size}px;"
+        # フォント設定（フォールバック対応）
+        # カンマ区切りのフォント名から最初のフォントのみを使用
+        primary_font = font_family.split(',')[0].strip()
+        
+        # フォントウェイトを検出
+        font_weight = self.detectFontWeight(primary_font)
+        
+        # SVGでのフォント指定を改善
+        # フォント名にスペースが含まれている場合は引用符で囲む
+        if ' ' in primary_font:
+            svg_font_family = f'"{primary_font}"'
+        else:
+            svg_font_family = primary_font
+        
+        # フォールバック用のフォントリストも追加
+        if primary_font not in ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy']:
+            svg_font_family += ', serif'  # フォールバック用
+            
+        # デバッグ出力（開発時のみ）
+        if hasattr(self, '_debug_mode') and self._debug_mode:
+            print(f"SVG生成 - プライマリフォント: '{primary_font}'")
+            print(f"SVG生成 - SVG用フォント名: '{svg_font_family}'")
+            self.logToFile(f"SVG生成 - プライマリフォント: '{primary_font}'")
+            self.logToFile(f"SVG生成 - SVG用フォント名: '{svg_font_family}'")
+        
+        font_style = f"font-family: {svg_font_family}; font-size: {font_size}px;"
         if force_monospace:
             font_style += " font-variant-numeric: tabular-nums;"
         
@@ -311,18 +429,42 @@ class VerticalTextDialog(QDialog):
                         # 左から右：最初の行から最後の行へ
                         x_coord = 50 + i * font_size * line_spacing
                     
-                    text_elem.set("x", str(x_coord))  # 行のX座標
-                    text_elem.set("y", str(50 + j * font_size * char_spacing))  # 文字のY座標（文字間隔を適用）
-                    text_elem.set("font-size", str(font_size))
-                    text_elem.set("font-family", font_family)
-                    text_elem.set("fill", text_color.name())
-                    text_elem.set("text-anchor", "middle")
-                    text_elem.set("dominant-baseline", "central")
+                    y_coord = 50 + j * font_size * char_spacing
+                    
+                    # Krita互換のstyle属性を作成
+                    style_parts = [
+                        f"fill:{text_color.name()}",
+                        "letter-spacing:0",
+                        "word-spacing:0", 
+                        f"font-family:{svg_font_family}",
+                        f"font-size:{font_size}",
+                        f"font-weight:{font_weight}",  # 検出されたフォントウェイト
+                        "stroke-width:0",
+                        "text-anchor:middle"
+                    ]
+                    
                     if force_monospace:
-                        text_elem.set("font-variant-numeric", "tabular-nums")
-                    text_elem.text = char
+                        style_parts.append("font-variant-numeric:tabular-nums")
+                    
+                    style_attr = "; ".join(style_parts)
+                    
+                    # Krita互換の属性設定
+                    text_elem.set("style", style_attr)
+                    text_elem.set("x", str(x_coord))
+                    text_elem.set("y", str(y_coord))
+                    
+                    # tspan要素を使用してテキストを配置（Krita互換）
+                    tspan = ET.SubElement(text_elem, "tspan")
+                    tspan.set("x", str(x_coord))
+                    tspan.text = char
         
-        return ET.tostring(svg, encoding='unicode')
+        # 生成されたSVGの内容をデバッグ出力（開発時のみ）
+        svg_content = ET.tostring(svg, encoding='unicode')
+        if hasattr(self, '_debug_mode') and self._debug_mode:
+            print(f"生成されたSVG（最初の500文字）: {svg_content[:500]}")
+            self.logToFile(f"生成されたSVG（最初の500文字）: {svg_content[:500]}")
+        
+        return svg_content
     
     def splitTextIntoLines(self, text, line_feed):
         """テキストを行に分割（改行文字と強制改行を考慮）"""
@@ -364,7 +506,7 @@ class VerticalTextDialog(QDialog):
         
         # フォント設定
         font = QFont()
-        font.setFamily(self.font_family_input.text())
+        font.setFamily(self.font_family_combo.currentText())
         font.setPointSize(self.font_size_spin.value())
         painter.setFont(font)
         painter.setPen(self.text_color)
@@ -441,7 +583,7 @@ class VerticalTextDialog(QDialog):
             line_spacing = self.line_spacing_spin.value() / 100.0
             char_spacing = self.char_spacing_spin.value() / 100.0
             line_feed = self.line_feed_spin.value()
-            font_family = self.font_family_input.text()
+            font_family = self.font_family_combo.currentText()
             force_monospace = self.force_monospace_check.isChecked()
             
             # テキスト方向を取得
